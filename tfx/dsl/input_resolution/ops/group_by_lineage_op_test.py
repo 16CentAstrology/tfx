@@ -17,7 +17,6 @@ import random
 
 from absl.testing import parameterized
 import tensorflow as tf
-from tfx.dsl.input_resolution import resolver_op
 from tfx.dsl.input_resolution.ops import group_by_lineage_op
 from tfx.dsl.input_resolution.ops import test_utils
 from tfx.orchestration.portable.input_resolution import exceptions
@@ -65,11 +64,11 @@ class GroupByDisjointLineageTest(
     self.init_mlmd()
 
   def _group_by_disjoint_lineage(self, *args, **kwargs):
-    return test_utils.run_resolver_op(
+    return test_utils.strict_run_resolver_op(
         group_by_lineage_op.GroupByDisjointLineage,
-        *args,
-        context=resolver_op.Context(store=self.store),
-        **kwargs,
+        args=args,
+        kwargs=kwargs,
+        store=self.store,
     )
 
   @parameterized.parameters(
@@ -91,7 +90,6 @@ class GroupByDisjointLineageTest(
         _shuffle(verts), _shuffle(edges)
     )
     self.assertEqual(actual, expected_disjoint_sets)
-
   def testGroupByDisjointLineage(self):
     a1, a2, a3, b1, b2, b3, b4, c1, c2, c3, c4 = self._prepare_tfx_artifacts(11)
     self._put_lineage(a1, b1, c1)
@@ -220,11 +218,11 @@ class GroupByPivotTest(tf.test.TestCase, _LineageUtils):
     self.init_mlmd()
 
   def _group_by_pivot(self, *args, **kwargs):
-    return test_utils.run_resolver_op(
+    return test_utils.strict_run_resolver_op(
         group_by_lineage_op.GroupByPivot,
-        *args,
-        context=resolver_op.Context(store=self.store),
-        **kwargs,
+        args=args,
+        kwargs=kwargs,
+        store=self.store,
     )
 
   def testGroupByPivot(self):
@@ -332,8 +330,8 @@ class GroupByPivotTest(tf.test.TestCase, _LineageUtils):
     self._put_lineage(a, b, c)
     with self.subTest('All connected'):
       result = self._group_by_pivot(
-          {'a': [a], 'b': [b], 'c': [c]},
-          pivot_key='a')
+          {'a': [a], 'b': [b], 'c': [c]}, pivot_key='a'
+      )
       self.assertEqual(result, [{'a': [a], 'b': [b], 'c': []}])
 
   def testGroupByPivot_SelfIsNotNeighbor(self):
@@ -345,7 +343,3 @@ class GroupByPivotTest(tf.test.TestCase, _LineageUtils):
     [a] = self._prepare_tfx_artifacts(1)
     result = self._group_by_pivot({'a': [a, a]}, pivot_key='a')
     self.assertEqual(result, [{'a': [a]}, {'a': [a]}])
-
-
-if __name__ == '__main__':
-  tf.test.main()

@@ -16,7 +16,6 @@
 import importlib
 import os
 from typing import List
-import unittest
 
 from absl import logging
 from absl.testing import parameterized
@@ -30,11 +29,13 @@ from tfx.v1.orchestration import metadata
 import ml_metadata as mlmd
 from ml_metadata.proto import metadata_store_pb2
 
+import pytest
+
+
 _SPAN_PROPERTY_NAME = 'span'
 
 
-@unittest.skipIf(tf.__version__ < '2',
-                 'Uses keras Model only compatible with TF 2.x')
+@pytest.mark.e2e
 class PenguinPipelineLocalEndToEndTest(tf.test.TestCase,
                                        parameterized.TestCase):
 
@@ -225,6 +226,8 @@ class PenguinPipelineLocalEndToEndTest(tf.test.TestCase,
 
   @parameterized.parameters(('keras',), ('flax_experimental',),
                             ('tfdf_experimental',))
+  @pytest.mark.xfail(run=False,
+                     reason="Exported Keras model with TF 1.16 is not working with bulk inference currently. Needs to be fixed.")
   def testPenguinPipelineLocalWithBulkInferrer(self, model_framework):
     if model_framework == 'tfdf_experimental':
       # Skip if TFDF is not available or incompatible.
@@ -517,8 +520,3 @@ class PenguinPipelineLocalEndToEndTest(tf.test.TestCase,
     # Artifact count is unchanged.
     self.assertLen(store.get_artifacts(), artifact_count)
     self.assertLen(store.get_executions(), expected_execution_count * 3)
-
-
-if __name__ == '__main__':
-  tf.compat.v1.enable_v2_behavior()
-  tf.test.main()

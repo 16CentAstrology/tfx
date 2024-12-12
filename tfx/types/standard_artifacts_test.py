@@ -13,6 +13,7 @@
 # limitations under the License.
 """Tests for standard TFX Artifact types."""
 
+
 import math
 from typing import Any, Dict
 from unittest import mock
@@ -48,7 +49,7 @@ _TEST_JSONVALUE_DICT_RAW = '{\"x\": 42}'
 _TEST_JSONVALUE_DICT_DECODED = {'x': 42}
 
 
-class TestJsonableCls(json_utils.Jsonable):
+class TfxTestJsonableCls(json_utils.Jsonable):
   """A test class that implements the Jsonable interface."""
 
   def __init__(self, x):
@@ -58,18 +59,18 @@ class TestJsonableCls(json_utils.Jsonable):
     return {'x': self._x}
 
   @classmethod
-  def from_json_dict(cls, dict_data: Dict[str, Any]) -> 'TestJsonableCls':
-    return TestJsonableCls(dict_data['x'])
+  def from_json_dict(cls, dict_data: Dict[str, Any]) -> 'TfxTestJsonableCls':
+    return TfxTestJsonableCls(dict_data['x'])
 
   def __eq__(self, other):
-    return isinstance(other, TestJsonableCls) and other._x == self._x
+    return isinstance(other, TfxTestJsonableCls) and other._x == self._x
 
 
 _TEST_JSONVALUE_OBJ_RAW = (
-    '{\"__class__\": \"TestJsonableCls\", \"__module__\":'
-    ' \"__main__\", \"__tfx_object_type__\": '
+    '{\"__class__\": \"TfxTestJsonableCls\", \"__module__\":'
+    ' \"tfx.types.standard_artifacts_test\", \"__tfx_object_type__\": '
     '\"jsonable\", \"x\": 42}')
-_TEST_JSONVALUE_OBJ_DECODED = TestJsonableCls(42)
+_TEST_JSONVALUE_OBJ_DECODED = TfxTestJsonableCls(42)
 
 
 class StandardArtifactsTest(tf.test.TestCase):
@@ -166,6 +167,39 @@ class StandardArtifactsTest(tf.test.TestCase):
     self.assertTrue(math.isinf(decoded_negative_infinity))
     self.assertTrue(math.isnan(decoded_nan))
 
+  def testExamples(self):
+    with self.subTest('Initial state'):
+      examples = standard_artifacts.Examples()
+      self.assertEqual(examples.split_names, '')
+      self.assertEmpty(examples.splits)
 
-if __name__ == '__main__':
-  tf.test.main()
+    with self.subTest('Empty splits'):
+      examples = standard_artifacts.Examples()
+      examples.splits = []
+      self.assertEqual(examples.split_names, '[]')
+      self.assertEmpty(examples.splits)
+
+    with self.subTest('Single split'):
+      examples = standard_artifacts.Examples()
+      examples.splits = ['train']
+      self.assertEqual(examples.split_names, '["train"]')
+
+    with self.subTest('Multiple splits'):
+      examples = standard_artifacts.Examples()
+      examples.splits = ['train', 'validation', 'test']
+      self.assertEqual(examples.split_names, '["train", "validation", "test"]')
+
+    with self.subTest('Invalid splits'):
+      examples = standard_artifacts.Examples()
+      with self.assertRaises(ValueError):
+        examples.splits = ['train', '_validation']  # Should not start with _.
+      with self.assertRaises(TypeError):
+        examples.splits = '["train", "validation"]'  # Should be Sequence[str]
+
+    with self.subTest('Split path'):
+      examples = standard_artifacts.Examples()
+      examples.uri = '/test'
+      examples.splits = ['train']
+      self.assertEqual(examples.path(split='train'), '/test/Split-train')
+      with self.assertRaises(ValueError):
+        examples.path(split='non-existing')
